@@ -18,6 +18,7 @@ class QuizViewModel: ViewModel() {
     )
 
     var currentIndex = 0 //Not private because it has to be accessed in MainActivity explicitly
+    var isCheater = false
 
     init {
         Log.d(TAG, "QuizViewModel created")

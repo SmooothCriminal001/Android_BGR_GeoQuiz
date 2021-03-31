@@ -1,5 +1,6 @@
 package com.bignerdranch.android.geoquiz
 
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
@@ -14,6 +15,7 @@ import androidx.lifecycle.ViewModelProvider
 //only primitives are allowed as consts. The right hand side cannot be a function (that changes in runtime)
 private const val TAG = "MainActivity"
 private const val KEY_INDEX = "index"
+private const val REQUEST_CODE_CHEAT = 0
 
 class MainActivity : AppCompatActivity() {
 
@@ -21,6 +23,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var falseButton: Button
     private lateinit var nextButton: Button
     private lateinit var questionTextView: TextView
+    private lateinit var cheatButton: Button
 
     //Getting an instance of QuizViewModel lazily, the first time it is called
     //Note QuizViewModel instance keeps its state when a device configuration change occurs
@@ -46,7 +49,7 @@ class MainActivity : AppCompatActivity() {
     //Called when an activity is first setup, app is clicked on
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d(TAG, "onCreate(Bundle?) called")
+        //Log.d(TAG, "onCreate(Bundle?) called")
         setContentView(R.layout.activity_main)
 
         //Getting value of currentIndex from savedInstanceState bundle. If the app was destroyed by OS earlier and opened now (not closed by user), the state will be maintained so
@@ -56,6 +59,7 @@ class MainActivity : AppCompatActivity() {
         falseButton = findViewById(R.id.false_button)
         nextButton = findViewById(R.id.next_button)
         questionTextView = findViewById(R.id.question_text_view)
+        cheatButton = findViewById(R.id.cheat_button)
 
         setQuestion()
 
@@ -73,41 +77,60 @@ class MainActivity : AppCompatActivity() {
             quizViewModel.moveToNext()
             setQuestion()
         }
+
+        cheatButton.setOnClickListener {view: View ->
+            val intent = CheatActivity.createIntent(this, quizViewModel.currentAnswer)
+            startActivityForResult(intent, REQUEST_CODE_CHEAT)            //Starting another activity from here, and mentioning this activity would expect a result from the child
+        }
     }
 
     //On start of the activity, when it comes to split-screen/foreground
     override fun onStart() {
         super.onStart()
-        Log.d(TAG, "onStart() called")
+        //Log.d(TAG, "onStart() called")
     }
 
     //When an activity gets to the foreground
     override fun onResume() {
         super.onResume()
-        Log.d(TAG, "onResume() called")
+        //Log.d(TAG, "onResume() called")
     }
 
     //When an activity steps out of the strict foreground due to split screen, or a transparent overlay
     override fun onPause() {
         super.onPause()
-        Log.d(TAG, "onPause() called")
+        //Log.d(TAG, "onPause() called")
     }
 
     //When an activity stops because of the user going to another app. Current app still lives in 'Recent apps'
     override fun onStop() {
         super.onStop()
-        Log.d(TAG, "onStop() called")
+        //Log.d(TAG, "onStop() called")
     }
 
     //When the activity is destroyed. User clicks back button and gets out of app
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "onDestroy() called")
+        //Log.d(TAG, "onDestroy() called")
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putInt(KEY_INDEX, quizViewModel.currentIndex)          //saving currentIndex in savedInstanceState. This will be called when the app is 'stopped'
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if(resultCode != RESULT_OK){
+            return
+        }
+
+        if(requestCode == REQUEST_CODE_CHEAT && data != null){
+            quizViewModel.isCheater = CheatActivity.wasAnswerShown(data)
+            //Log.d(TAG, "is Cheater from child ${quizViewModel.isCheater}")
+            //quizViewModel.isCheater = data.getBooleanExtra(CHEATED_EXTRA, false)
+        }
     }
 
     private fun setQuestion(){
@@ -119,11 +142,12 @@ class MainActivity : AppCompatActivity() {
     private fun checkAnswer(userAnswer: Boolean){
         //val currentAnswer = questionBank[currentIndex].answer
         val currentAnswer = quizViewModel.currentAnswer
+        //Log.d(TAG, "isCheat? ${quizViewModel.isCheater}")
 
-        val messageResId = if(userAnswer == currentAnswer){
-            R.string.correct_toast
-        }else{
-            R.string.incorrect_toast
+        val messageResId = when{
+            quizViewModel.isCheater -> R.string.judgment_toast
+            userAnswer == currentAnswer -> R.string.correct_toast
+            else -> R.string.incorrect_toast
         }
 
         Toast.makeText(this, messageResId, Toast.LENGTH_SHORT).show()
